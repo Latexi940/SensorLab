@@ -14,6 +14,7 @@ import android.os.Build
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.util.Log
+import android.widget.Toast
 import androidx.core.app.ActivityCompat
 import kotlinx.android.synthetic.main.activity_main.*
 
@@ -21,11 +22,11 @@ import kotlinx.android.synthetic.main.activity_main.*
 class MainActivity : AppCompatActivity(), SensorEventListener, LocationListener {
 
     private lateinit var sm: SensorManager
-    private var sStepDetector: Sensor? = null
+    private var sStepSensor: Sensor? = null
     private var stepCount = 0
     private var averageStepLength = 0.0
-    var prevPos: Location? = null
-    var distanceMoved = 0f
+    private var prevPos: Location? = null
+    private var distanceMoved = 0f
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -73,9 +74,14 @@ class MainActivity : AppCompatActivity(), SensorEventListener, LocationListener 
         lm.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 1000, 0f, this)
 
         sm = getSystemService(Context.SENSOR_SERVICE) as SensorManager
-        sStepDetector = sm.getDefaultSensor(Sensor.TYPE_STEP_DETECTOR)
-        var sensorName = sStepDetector?.name
-        Log.i("STEPS", "Sensor name: $sensorName")
+
+        if (sm.getDefaultSensor(Sensor.TYPE_STEP_DETECTOR) != null) {
+            sStepSensor = sm.getDefaultSensor(Sensor.TYPE_STEP_DETECTOR)
+        } else if (sm.getDefaultSensor(Sensor.TYPE_STEP_COUNTER) != null) {
+            sStepSensor = sm.getDefaultSensor(Sensor.TYPE_STEP_COUNTER)
+        } else {
+            Toast.makeText(this, "No usable sensors found", Toast.LENGTH_SHORT)
+        }
 
         resetButton.setOnClickListener {
             Log.i("STEPS", "Reset button pressed")
@@ -84,9 +90,8 @@ class MainActivity : AppCompatActivity(), SensorEventListener, LocationListener 
             distanceMoved = 0f
             stepView.text = "Steps taken: $stepCount"
             stepLengthView.text = "Your average step length is: $averageStepLength"
-
+            distanceView.text = "Distance traveled: $distanceMoved"
         }
-
     }
 
     override fun onSensorChanged(event: SensorEvent?) {
@@ -94,14 +99,11 @@ class MainActivity : AppCompatActivity(), SensorEventListener, LocationListener 
         val sensorName = event?.sensor?.name
         Log.i("STEPS", "Sensor change detected in: $sensorName")
 
-        if (event?.sensor == sStepDetector) {
-            var sensorChange = event?.values?.size
-            Log.i("STEPS", "Sensor change: $sensorChange")
-            if (sensorChange != null && sensorChange > 0) {
-                stepCount++
-                Log.i("STEPS", "Steps taken: $stepCount")
-                stepView.text = "Steps taken: $stepCount"
-            }
+        if (event?.sensor == sStepSensor) {
+            stepCount++
+            Log.i("STEPS", "Steps taken: $stepCount")
+            stepView.text = "Steps taken: $stepCount"
+
         }
     }
 
@@ -110,11 +112,14 @@ class MainActivity : AppCompatActivity(), SensorEventListener, LocationListener 
     }
 
     override fun onLocationChanged(pos: Location?) {
+        Log.i("STEPS", "Location changed")
         if (pos != null && prevPos != null) {
             distanceMoved += pos.distanceTo(prevPos)
             averageStepLength = (distanceMoved / stepCount).toDouble()
             var formattedSteps = String.format("%.2f", averageStepLength)
+            var formattedDistance = String.format("%.2f", distanceMoved)
             stepLengthView.text = "Your average step length is: $formattedSteps"
+            distanceView.text = "Distance traveled: $formattedDistance"
         }
 
         prevPos = pos
@@ -124,22 +129,24 @@ class MainActivity : AppCompatActivity(), SensorEventListener, LocationListener 
     }
 
     override fun onProviderEnabled(p0: String?) {
+        Log.i("STEPS", "Location provider enabled")
     }
 
     override fun onProviderDisabled(p0: String?) {
+        Log.i("STEPS", "Location provider disabled")
     }
 
     override fun onResume() {
         super.onResume()
         Log.i("STEPS", "Resuming app")
 
-        if (sStepDetector != null) {
-            sStepDetector?.also {
-                Log.i("STEPS", "Registering detector")
+        if (sStepSensor != null) {
+            sStepSensor?.also {
+                Log.i("STEPS", "Registering sensor")
                 sm.registerListener(this, it, SensorManager.SENSOR_DELAY_NORMAL)
             }
         } else {
-            Log.i("STEPS", "No detector")
+            Log.i("STEPS", "No sensor to register")
         }
     }
 
