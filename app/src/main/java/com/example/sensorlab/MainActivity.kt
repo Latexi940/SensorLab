@@ -112,9 +112,9 @@ class MainActivity : AppCompatActivity(), SensorEventListener, LocationListener 
     override fun onLocationChanged(pos: Location?) {
         if (pos != null && prevPos != null) {
             distanceMoved += pos.distanceTo(prevPos)
-            averageStepLength =
-                String.format("%.2f", (distanceMoved / stepCount).toInt()).toDouble()
-            stepLengthView.text = "Your average step length is: $averageStepLength"
+            averageStepLength = (distanceMoved / stepCount).toDouble()
+            var formattedSteps = String.format("%.2f", averageStepLength)
+            stepLengthView.text = "Your average step length is: $formattedSteps"
         }
 
         prevPos = pos
